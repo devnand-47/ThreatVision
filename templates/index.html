@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>THREATVISION // GLOBAL INTEL</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <style>
+        /* 1. LAYOUT FIX: Use Flexbox to fit screen perfectly */
+        body { 
+            background-color: #050505; 
+            color: #ff0000; 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            height: 100vh; /* Force full screen height */
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; /* Prevent scrolling on the main page */
+        }
+
+        /* 2. HEADER: Fixed size at the top */
+        .header { 
+            flex: 0 0 auto; /* Don't grow or shrink */
+            background: #000; 
+            padding: 15px; 
+            border-bottom: 2px solid #ff0000; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            z-index: 1000;
+        }
+
+        /* 3. MAP: Fills all remaining space in the middle */
+        #map { 
+            flex: 1; /* Grow to fill space */
+            width: 100%; 
+            filter: invert(100%) hue-rotate(180deg) brightness(0.8) contrast(1.2); 
+        }
+
+        /* 4. LOG PANEL: Fixed size at the bottom */
+        #log-panel { 
+            flex: 0 0 160px; /* Fixed height (approx 160px) */
+            background: #0a0a0a; 
+            overflow-y: auto; /* Scroll INSIDE the panel if needed */
+            padding: 10px; 
+            border-top: 1px solid #333; 
+            font-size: 12px; 
+            color: #ccc; 
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); /* Cool shadow effect */
+        }
+
+        /* TEXT STYLES */
+        .title-group h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+        .title-group h6 { margin: 2px 0 0 0; font-size: 10px; color: #666; font-weight: normal; }
+        .title-group a { color: #ff2b2b; text-decoration: none; font-weight: bold; }
+        .title-group a:hover { text-decoration: underline; color: #fff; }
+
+        .status { font-size: 14px; color: #00ff41; animation: blink 1s infinite; font-weight: bold; }
+        
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+        .log-high { color: #ff2b2b; font-weight: bold; }
+        .log-src { color: #00aaff; }
+
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="title-group">
+            <h1>👁️ THREATVISION V1.0</h1>
+            <h6>DEVELOPED BY <a href="https://github.com/devnand-47" target="_blank">DEV_NAND</a> // AGENT47</h6>
+        </div>
+        <div class="status">● LIVE FEED ACTIVE</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="log-panel">
+        <div id="logs">
+            </div>
+    </div>
+
+    <script>
+        var map = L.map('map').setView([20, 0], 2);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        async function fetchThreat() {
+            try {
+                let response = await fetch('/api/feed');
+                let data = await response.json();
+                plotAttack(data);
+            } catch (error) {
+                console.log("Feed Error - Retrying...");
+            }
+        }
+
+        function plotAttack(data) {
+            var circle = L.circle([data.src_lat, data.src_lon], {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.8,
+                radius: 50000
+            }).addTo(map);
+
+            var line = L.polyline([
+                [data.src_lat, data.src_lon],
+                [data.dst_lat, data.dst_lon]
+            ], {color: 'red', weight: 1, opacity: 0.5}).addTo(map);
+
+            // FIX: Handle missing IP addresses gracefully
+            let displayIP = data.src_ip || "HIDDEN PROXY";
+            
+            let logPanel = document.getElementById('logs');
+            let newLog = document.createElement('div');
+            newLog.className = "log-entry";
+            
+            // Format: [ALERT] Time | Type | IP (Country) -> TARGET
+            newLog.innerHTML = `<span class="log-high">[ALERT]</span> ${data.timestamp} | ${data.type} | <span class="log-src">${displayIP}</span> (${data.src_country}) ➔ TARGET`;
+            
+            logPanel.prepend(newLog);
+
+            // Remove visual after 3 seconds
+            setTimeout(() => { map.removeLayer(circle); map.removeLayer(line); }, 3000);
+        }
+
+        setInterval(fetchThreat, 2000);
+
+    </script>
+</body>
+</html> 
